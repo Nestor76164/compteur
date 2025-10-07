@@ -170,7 +170,7 @@
         function pushValue(chart, val, label) {
             chart.data.datasets[0].data.push(val);
             chart.data.labels.push(label);
-            if (chart.data.datasets[0].data.length > 60) {
+            if (chart.data.datasets[0].data.length > 15) {
                 chart.data.datasets[0].data.shift();
                 chart.data.labels.shift();
             }
