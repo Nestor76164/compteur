@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="fr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Compteur Intelligent</title>
+    <style>
+        :root {
+            --bg: #0f1724;
+            --card: #0b1220;
+            --muted: #9aa7bf;
+            --accent: #00c2a8;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            /* empêche le scroll */
+            background: linear-gradient(180deg, #071026 0%, #071827 100%);
+            color: #e6eef6;
+        }
+
+        header {
+            background: var(--card);
+            color: var(--accent);
+            font-size: 26px;
+            font-weight: bold;
+            padding: 20px;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+
+        .login-container {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: var(--card);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.4);
+            width: 320px;
+            text-align: center;
+        }
+
+        .login-container h2 {
+            color: var(--accent);
+            margin-bottom: 20px;
+            font-size: 22px;
+        }
+
+        .input-group {
+            margin-bottom: 20px;
+            text-align: left;
+        }
+
+        .input-group label {
+            display: block;
+            font-size: 14px;
+            color: var(--muted);
+            margin-bottom: 5px;
+        }
+
+        .input-group input {
+            width: 100%;
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #444;
+            background-color: #0b1220;
+            color: #e6eef6;
+            font-size: 15px;
+        }
+
+        .input-group input:focus {
+            outline: none;
+            border: 1px solid var(--accent);
+            box-shadow: 0 0 6px rgba(0, 194, 168, 0.5);
+        }
+
+        .login-btn {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            background-color: var(--accent);
+            color: #0b1220;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: background 0.3s ease;
+        }
+
+        .login-btn:hover {
+            background-color: #00b399;
+        }
+
+        .error {
+            color: #ff4d4d;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+
+<body>
+    <header>Compteur Intelligent</header>
+
+    <div class="login-container">
+        <h2>Connexion</h2>
+        <form id="loginForm">
+            <div class="input-group">
+                <label for="password">Numéro du compteur</label>
+                <input type="password" id="password" placeholder="Entrez votre numéro" required>
+            </div>
+            <button type="submit" class="login-btn">Se connecter</button>
+            <div id="errorMessage" class="error"></div>
+        </form>
+    </div>
+
+    <!-- Firebase -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
+        import { getDatabase, ref, get } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBkeYhHZc9Na0UHjETg9GABYsDZFx1bLtQ",
+            authDomain: "esp32-b9013.firebaseapp.com",
+            databaseURL: "https://esp32-b9013-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "esp32-b9013",
+            storageBucket: "esp32-b9013.appspot.com",
+            messagingSenderId: "547189202345",
+            appId: "1:547189202345:web:054bd09f1f7e66f7b538b8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        document.getElementById("loginForm").addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const password = document.getElementById("password").value.trim();
+            const errorMessage = document.getElementById("errorMessage");
+
+            try {
+                const snapshot = await get(ref(db, "system"));
+                if (snapshot.exists()) {
+                    let admins = snapshot.val();
+                    let found = false;
+
+                    for (let key in admins) {
+                        if (admins[key].password === password) {
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (found) {
+                        window.location.href = "compteur.html";
+                    } else {
+                        errorMessage.textContent = "⚠️ Numéro du compteur incorrect.";
+                    }
+                } else {
+                    errorMessage.textContent = "Aucun administrateur enregistré.";
+                }
+            } catch (error) {
+                errorMessage.textContent = "Erreur de connexion à la base.";
+                console.error(error);
+            }
+        });
+    </script>
+</body>
+
+</html>

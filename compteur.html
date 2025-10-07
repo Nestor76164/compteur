@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="fr">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Compteur électrique IoT</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Firebase -->
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+    <style>
+        :root {
+            --bg: #0f1724;
+            --card: #0b1220;
+            --muted: #9aa7bf;
+            --accent: #00c2a8;
+            font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Arial;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            width: 100%;
+            overflow: hidden;
+            /* empêche le défilement */
+            background: linear-gradient(180deg, #071026 0%, #071827 100%);
+            color: #e6eef6;
+        }
+
+        .wrap {
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 100%;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .card {
+            background: var(--card);
+            padding: 14px;
+            border-radius: 12px;
+            margin-bottom: 10px;
+            text-align: center;
+            box-sizing: border-box;
+        }
+
+        .kpi {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            margin-bottom: 5px;
+        }
+
+        .kpi h3 {
+            margin: 0;
+            font-size: 16px;
+        }
+
+        .kpi p {
+            margin: 6px 0 0 0;
+            font-weight: 700;
+            font-size: 20px;
+        }
+
+        .btn-wrap {
+            margin-top: 10px;
+        }
+
+        .kpi-button {
+            width: 60%;
+            padding: 10px 0;
+            border: none;
+            border-radius: 8px;
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .kpi-button.on {
+            background: #00c2a8;
+        }
+
+        .kpi-button.off {
+            background: #ff4d4d;
+        }
+
+        .card:last-child {
+            flex: 2;
+            /* le graphique prend plus de place */
+        }
+
+        .chartWrap {
+            height: 100%;
+        }
+
+        canvas {
+            width: 100% !important;
+            height: 100% !important;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="wrap">
+        <div class="card kpi">
+            <h3>Courant</h3>
+            <p id="curVal">-- A</p>
+        </div>
+        <div class="card kpi">
+            <h3>Tension</h3>
+            <p id="voltVal">-- V</p>
+        </div>
+        <div class="card kpi">
+            <h3>Puissance</h3>
+            <p id="powerVal">-- W</p>
+        </div>
+        <div class="card">
+            <h3>Action</h3>
+            <div class="btn-wrap">
+                <button id="myBtn" class="kpi-button">ON</button>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Consommation temps-réel</h3>
+            <div class="chartWrap">
+                <canvas id="powerChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-app.js";
+        import { getDatabase, ref, onValue, set } from "https://www.gstatic.com/firebasejs/10.10.0/firebase-database.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBkeYhHZc9Na0UHjETg9GABYsDZFx1bLtQ",
+            authDomain: "esp32-b9013.firebaseapp.com",
+            databaseURL: "https://esp32-b9013-default-rtdb.europe-west1.firebasedatabase.app",
+            projectId: "esp32-b9013",
+            storageBucket: "esp32-b9013.appspot.com",
+            messagingSenderId: "547189202345",
+            appId: "1:547189202345:web:054bd09f1f7e66f7b538b8"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const db = getDatabase(app);
+
+        const curValEl = document.getElementById('curVal');
+        const voltValEl = document.getElementById('voltVal');
+        const powerValEl = document.getElementById('powerVal');
+        const btn = document.getElementById("myBtn");
+
+        // Graphique puissance
+        const powerChartCtx = document.getElementById('powerChart').getContext('2d');
+        const powerChart = new Chart(powerChartCtx, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'Puissance (W)', data: [], borderColor: '#00c2a8', tension: 0.25 }] },
+            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+        });
+
+        function pushValue(chart, val, label) {
+            chart.data.datasets[0].data.push(val);
+            chart.data.labels.push(label);
+            if (chart.data.datasets[0].data.length > 60) {
+                chart.data.datasets[0].data.shift();
+                chart.data.labels.shift();
+            }
+            chart.update('none');
+        }
+
+        // ===== Charger l'historique au démarrage =====
+        const histoRef = ref(db, 'compteur/historique');
+        onValue(histoRef, snapshot => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            Object.keys(data).forEach(ts => {
+                const d = new Date(parseInt(ts) * 1000).toLocaleTimeString();
+                const power = data[ts].puissance;
+                pushValue(powerChart, power, d);
+            });
+        });
+
+        // ===== Lecture temps réel =====
+        const realtimeRef = ref(db, 'compteur/realtime');
+        onValue(realtimeRef, snapshot => {
+            const data = snapshot.val();
+            if (!data) return;
+
+            const { courant: cur, tension: volt, action } = data;
+            const power = (cur * volt).toFixed(2);
+
+            curValEl.innerText = cur + ' A';
+            voltValEl.innerText = volt + ' V';
+            powerValEl.innerText = power + ' W';
+
+            if (action == 1) {
+                btn.classList.add("on"); btn.classList.remove("off"); btn.innerText = "ON";
+            } else {
+                btn.classList.add("off"); btn.classList.remove("on"); btn.innerText = "OFF";
+            }
+
+            const d = new Date().toLocaleTimeString();
+            pushValue(powerChart, power, d);
+        });
+
+        // ===== Gestion du bouton =====
+        btn.addEventListener("click", () => {
+            const newAction = btn.classList.contains("on") ? 0 : 1;
+            set(ref(db, 'compteur/realtime/action'), newAction);
+        });
+    </script>
+
+</body>
+
+</html>
