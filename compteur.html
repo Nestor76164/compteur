@@ -52,15 +52,13 @@
             transition: background 0.3s ease;
         }
 
-        .kpi h3 {
-            margin: 0;
-            font-size: 16px;
-        }
-
-        .kpi p {
-            margin: 6px 0 0 0;
-            font-weight: 700;
-            font-size: 20px;
+        /* Bloc KPI horizontal */
+        .kpi-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 18px;
+            font-weight: 600;
         }
 
         .tension-status {
@@ -132,39 +130,45 @@
     <div class="wrap">
 
         <h1 style="
-    text-align: center;
-    color: #007BFF;
-    text-transform: uppercase;
-    border-bottom: 2px solid #007BFF;
-    display: inline-block;
-    padding-bottom: 5px;
-">
+            text-align: center;
+            color: #007BFF;
+            text-transform: uppercase;
+            border-bottom: 2px solid #007BFF;
+            display: inline-block;
+            padding-bottom: 5px;
+        ">
             Compteur intelligent
         </h1>
 
         <!-- Tension -->
         <div class="card kpi" id="tensionCard">
-            <h3>Tension</h3>
-            <p id="voltVal">-- V</p>
+            <div class="kpi-row">
+                <span>Tension :</span>
+                <span id="voltVal">-- V</span>
+            </div>
             <p id="voltStatus" class="tension-status">--</p>
         </div>
 
         <!-- Courant -->
         <div class="card kpi">
-            <h3>Courant</h3>
-            <p id="curVal">-- A</p>
+            <div class="kpi-row">
+                <span>Courant :</span>
+                <span id="curVal">-- A</span>
+            </div>
         </div>
 
         <!-- Puissance -->
         <div class="card kpi">
-            <h3>Puissance</h3>
-            <p id="powerVal">-- W</p>
+            <div class="kpi-row">
+                <span>Puissance :</span>
+                <span id="powerVal">-- W</span>
+            </div>
         </div>
 
         <!-- Bouton ON/OFF -->
         <div class="card">
-            <h3>Action</h3>
-            <div class="btn-wrap">
+            <div class="kpi-row">
+                <span>Action :</span>
                 <button id="myBtn" class="kpi-button">ON</button>
             </div>
         </div>
