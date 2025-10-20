@@ -27,7 +27,6 @@
             height: 100%;
             width: 100%;
             overflow: hidden;
-            /* empêche le défilement */
             background: linear-gradient(180deg, #071026 0%, #071827 100%);
             color: #e6eef6;
         }
@@ -35,27 +34,22 @@
         .wrap {
             display: flex;
             flex-direction: column;
-            justify-content: space-between;
+            justify-content: flex-start;
+            align-items: stretch;
             height: 100%;
             padding: 10px;
             box-sizing: border-box;
+            gap: 10px;
         }
 
         .card {
             background: var(--card);
             padding: 14px;
             border-radius: 12px;
-            margin-bottom: 10px;
             text-align: center;
+            flex-shrink: 0;
             box-sizing: border-box;
-        }
-
-        .kpi {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            margin-bottom: 5px;
+            transition: background 0.3s ease;
         }
 
         .kpi h3 {
@@ -69,8 +63,38 @@
             font-size: 20px;
         }
 
-        .btn-wrap {
-            margin-top: 10px;
+        .tension-status {
+            font-size: 14px;
+            margin-top: 4px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+
+        .normal {
+            color: #00ffae;
+        }
+
+        .faible {
+            color: #ffcc00;
+        }
+
+        .elevee {
+            color: #ff4d4d;
+        }
+
+        .tension-normal-bg {
+            background: linear-gradient(180deg, #0b1220, #063b29);
+        }
+
+        .tension-faible-bg {
+            background: linear-gradient(180deg, #0b1220, #4a3d0d);
+        }
+
+        .tension-elevee-bg {
+            background: linear-gradient(180deg, #0b1220, #4a0d0d);
         }
 
         .kpi-button {
@@ -93,11 +117,6 @@
             background: #ff4d4d;
         }
 
-        .card:last-child {
-            flex: 2;
-            /* le graphique prend plus de place */
-        }
-
         .chartWrap {
             height: 100%;
         }
@@ -111,30 +130,53 @@
 
 <body>
     <div class="wrap">
+
+        <h1 style="
+    text-align: center;
+    color: #007BFF;
+    text-transform: uppercase;
+    border-bottom: 2px solid #007BFF;
+    display: inline-block;
+    padding-bottom: 5px;
+">
+            Compteur intelligent
+        </h1>
+
+        <!-- Tension -->
+        <div class="card kpi" id="tensionCard">
+            <h3>Tension</h3>
+            <p id="voltVal">-- V</p>
+            <p id="voltStatus" class="tension-status">--</p>
+        </div>
+
+        <!-- Courant -->
         <div class="card kpi">
             <h3>Courant</h3>
             <p id="curVal">-- A</p>
         </div>
-        <div class="card kpi">
-            <h3>Tension</h3>
-            <p id="voltVal">-- V</p>
-        </div>
+
+        <!-- Puissance -->
         <div class="card kpi">
             <h3>Puissance</h3>
             <p id="powerVal">-- W</p>
         </div>
+
+        <!-- Bouton ON/OFF -->
         <div class="card">
             <h3>Action</h3>
             <div class="btn-wrap">
                 <button id="myBtn" class="kpi-button">ON</button>
             </div>
         </div>
+
+        <!-- Graphique -->
         <div class="card">
             <h3>Consommation temps-réel</h3>
             <div class="chartWrap">
                 <canvas id="powerChart"></canvas>
             </div>
         </div>
+
     </div>
 
     <script type="module">
@@ -156,6 +198,8 @@
 
         const curValEl = document.getElementById('curVal');
         const voltValEl = document.getElementById('voltVal');
+        const voltStatusEl = document.getElementById('voltStatus');
+        const tensionCard = document.getElementById('tensionCard');
         const powerValEl = document.getElementById('powerVal');
         const btn = document.getElementById("myBtn");
 
@@ -163,8 +207,19 @@
         const powerChartCtx = document.getElementById('powerChart').getContext('2d');
         const powerChart = new Chart(powerChartCtx, {
             type: 'line',
-            data: { labels: [], datasets: [{ label: 'Puissance (W)', data: [], borderColor: '#00c2a8', tension: 0.25 }] },
-            options: { plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true } } }
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Puissance (W)',
+                    data: [],
+                    borderColor: '#00c2a8',
+                    tension: 0.25
+                }]
+            },
+            options: {
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
         });
 
         function pushValue(chart, val, label) {
@@ -177,12 +232,11 @@
             chart.update('none');
         }
 
-        // ===== Charger l'historique au démarrage =====
+        // Historique au démarrage
         const histoRef = ref(db, 'compteur/historique');
         onValue(histoRef, snapshot => {
             const data = snapshot.val();
             if (!data) return;
-
             Object.keys(data).forEach(ts => {
                 const d = new Date(parseInt(ts) * 1000).toLocaleTimeString();
                 const power = data[ts].puissance;
@@ -190,7 +244,7 @@
             });
         });
 
-        // ===== Lecture temps réel =====
+        // Lecture temps réel
         const realtimeRef = ref(db, 'compteur/realtime');
         onValue(realtimeRef, snapshot => {
             const data = snapshot.val();
@@ -203,17 +257,37 @@
             voltValEl.innerText = volt + ' V';
             powerValEl.innerText = power + ' W';
 
-            if (action == 1) {
-                btn.classList.add("on"); btn.classList.remove("off"); btn.innerText = "ON";
+            // --- Évaluation de la tension ---
+            if (volt >= 180 && volt <= 240) {
+                voltStatusEl.innerHTML = "✅ Tension normale";
+                voltStatusEl.className = "tension-status normal";
+                tensionCard.className = "card kpi tension-normal-bg";
+            } else if (volt < 180) {
+                voltStatusEl.innerHTML = "⚠️ Tension faible";
+                voltStatusEl.className = "tension-status faible";
+                tensionCard.className = "card kpi tension-faible-bg";
             } else {
-                btn.classList.add("off"); btn.classList.remove("on"); btn.innerText = "OFF";
+                voltStatusEl.innerHTML = "⚠️ Tension élevée";
+                voltStatusEl.className = "tension-status elevee";
+                tensionCard.className = "card kpi tension-elevee-bg";
+            }
+
+            // --- Bouton ON/OFF ---
+            if (action == 1) {
+                btn.classList.add("on");
+                btn.classList.remove("off");
+                btn.innerText = "ON";
+            } else {
+                btn.classList.add("off");
+                btn.classList.remove("on");
+                btn.innerText = "OFF";
             }
 
             const d = new Date().toLocaleTimeString();
             pushValue(powerChart, power, d);
         });
 
-        // ===== Gestion du bouton =====
+        // Bouton d'action
         btn.addEventListener("click", () => {
             const newAction = btn.classList.contains("on") ? 0 : 1;
             set(ref(db, 'compteur/realtime/action'), newAction);
